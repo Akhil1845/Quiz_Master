@@ -56,7 +56,7 @@ function App() {
         } 
       />
       <Route 
-        path="/quiz" 
+        path="/quiz/:quizCode" 
         element={
           <ProtectedRoute>
             <QuizScreen />

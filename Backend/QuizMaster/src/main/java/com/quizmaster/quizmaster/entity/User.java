@@ -26,9 +26,6 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(name = "avatar", columnDefinition = "TEXT")
-    private String avatar;
-
     // 🔥 Plain text password (learning purpose)
     @Column(nullable = false)
     private String password;

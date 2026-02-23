@@ -1,145 +1,338 @@
-import { useNavigate } from 'react-router-dom';
-
-// Sample leaderboard data - in a real app, this would come from an API
-const sampleLeaderboard = [
-  { id: 1, name: 'Alex Johnson', score: 95, accuracy: 95, time: '4:32' },
-  { id: 2, name: 'Taylor Smith', score: 92, accuracy: 92, time: '5:12' },
-  { id: 3, name: 'Jordan Lee', score: 88, accuracy: 88, time: '5:45' },
-  { id: 4, name: 'Casey Kim', score: 85, accuracy: 85, time: '6:21' },
-  { id: 5, name: 'Riley Wilson', score: 82, accuracy: 82, time: '6:55' },
-];
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import Confetti from 'react-confetti';
 
 function Leaderboard() {
   const navigate = useNavigate();
-  // Try to load latest leaderboard pushed by server
-  let latest = null;
-  try {
-    latest = JSON.parse(localStorage.getItem('latestLeaderboard') || 'null');
-  } catch (e) { latest = null; }
+  const location = useLocation();
 
-  const leaderboard = Array.isArray(latest) && latest.length > 0 ? latest : sampleLeaderboard;
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [questionType, setQuestionType] = useState('MCQ');
+  const [showConfetti, setShowConfetti] = useState(true);
 
-  // Build a simple userScore from leaderboard if exists
-  const playerId = localStorage.getItem('userId');
-  const foundIndex = leaderboard.findIndex(p => p.playerId === playerId || p.id === playerId || p.name === localStorage.getItem('username'));
-  const userScore = foundIndex >= 0 ? {
-    rank: foundIndex + 1,
-    score: leaderboard[foundIndex].score || 0,
-    accuracy: leaderboard[foundIndex].averageScore || leaderboard[foundIndex].accuracy || 0,
-    time: leaderboard[foundIndex].time || '--:--'
-  } : { rank: '-', score: '-', accuracy: '-', time: '--:--' };
+  const [userScore, setUserScore] = useState({
+    rank: '-',
+    score: '-',
+    correctCount: '-',
+    totalQuestions: '-',
+    accuracy: '-',
+    writtenCount: '-',
+    writtenAccuracy: '-',
+    time: '--:--'
+  });
 
-  return (
-    <div style={{ ...styles.container, background: 'var(--bg)', color: 'var(--text)' }}>
-      <h1 style={styles.title}>Quiz Results</h1>
-      
-      <div style={styles.leaderboardContainer}>
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Rank</th>
-                <th style={styles.th}>Player</th>
-                <th style={styles.th}>Score</th>
-                <th style={styles.th}>Accuracy</th>
-                <th style={styles.th}>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sampleLeaderboard.map((player, index) => (
-                <tr 
-                  key={player.id} 
-                  style={{
-                    ...styles.tr,
-                    ...(index < 3 && styles.topThree),
-                    ...(index === 1 && styles.secondPlace),
-                    ...(index === 2 && styles.thirdPlace),
-                  }}
-                >
-                  <td style={styles.td}>
-                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
-                  </td>
-                  <td style={{ ...styles.td, textAlign: 'left' }}>
-                    <div style={styles.playerCell}>
-                      {index < 3 && (
-                        <span style={styles.medal}>
-                          {index === 0 ? '👑' : index === 1 ? '🥈' : '🥉'}
-                        </span>
-                      )}
-                      {player.name}
-                    </div>
-                  </td>
-                  <td style={styles.td}>
-                    <span style={styles.score}>{player.score}</span>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.accuracyBarContainer}>
-                      <div 
-                        style={{
-                          ...styles.accuracyBar,
-                          width: `${player.accuracy}%`,
-                          backgroundColor: 
-                            player.accuracy >= 90 ? '#10b981' : 
-                            player.accuracy >= 70 ? '#3b82f6' : 
-                            '#f59e0b'
-                        }}
-                      ></div>
-                      <span style={styles.accuracyText}>{player.accuracy}%</span>
-                    </div>
-                  </td>
-                  <td style={styles.td}>{player.time}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div style={styles.userStatsCard}>
-          <h3 style={styles.userStatsTitle}>Your Performance</h3>
-          <div style={styles.statsGrid}>
-            <div style={styles.statItem}>
-              <div style={styles.statValue}>{userScore.rank}</div>
-              <div style={styles.statLabel}>Rank</div>
-            </div>
-            <div style={styles.statItem}>
-              <div style={styles.statValue}>{userScore.score}</div>
-              <div style={styles.statLabel}>Score</div>
-            </div>
-            <div style={styles.statItem}>
-              <div style={styles.statValue}>{userScore.accuracy}%</div>
-              <div style={styles.statLabel}>Accuracy</div>
-            </div>
-            <div style={styles.statItem}>
-              <div style={styles.statValue}>{userScore.time}</div>
-              <div style={styles.statLabel}>Time</div>
-            </div>
-          </div>
-          
-          <div style={styles.buttonGroup}>
-            <button 
-              style={styles.primaryBtn}
-              onClick={() => navigate('/dashboard')}
-            >
-              Back to Dashboard
-            </button>
-            <button 
-              style={styles.secondaryBtn}
-              onClick={() => window.print()}
-            >
-              Download Certificate
-            </button>
+  /* ---------------- LOAD LEADERBOARD ---------------- */
+  useEffect(() => {
+    setLoading(true);
+
+    let lb = [];
+
+    // From navigation state
+    if (location.state?.leaderboard) {
+      console.log('[LEADERBOARD] Received from navigation state:', location.state.leaderboard);
+      lb = location.state.leaderboard;
+      localStorage.setItem('latestLeaderboard', JSON.stringify(lb));
+    }
+
+    // From localStorage fallback
+    if (lb.length === 0) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('latestLeaderboard'));
+        console.log('[LEADERBOARD] Loaded from localStorage:', stored);
+        if (Array.isArray(stored)) lb = stored;
+      } catch {
+        console.log('[LEADERBOARD] No data in localStorage');
+        lb = [];
+      }
+    }
+
+    console.log('[LEADERBOARD] Final leaderboard data:', lb);
+    setLeaderboard(lb);
+    
+    // Get question type from navigation state or current quiz
+    const currentQuiz = JSON.parse(localStorage.getItem('currentQuiz') || '{}');
+    const storedQuestionType =
+      location.state?.questionType ||
+      localStorage.getItem('questionType') ||
+      currentQuiz.questionType ||
+      'MCQ';
+    localStorage.setItem('questionType', storedQuestionType);
+    setQuestionType(storedQuestionType);
+    
+    setLoading(false);
+  }, [location.state]);
+
+  const isWrittenOnly = questionType === 'Written';
+  const isMCQ = questionType === 'MCQ';
+  const getWrittenAccuracy = (player) => {
+    const value = player?.writtenAccuracy ?? player?.accuracy ?? 0;
+    return Number.isFinite(value) ? value : 0;
+  };
+  const getScoreValue = (player) => (
+    isWrittenOnly ? getWrittenAccuracy(player) : (player?.score ?? 0)
+  );
+  const formatScore = (player) => (
+    isWrittenOnly ? `${getScoreValue(player)}%` : getScoreValue(player)
+  );
+
+  /* ---------------- SORT ---------------- */
+  const sortedLeaderboard = [...leaderboard].sort(
+    (a, b) => getScoreValue(b) - getScoreValue(a)
+  );
+
+  const isHost = Boolean(location.state?.isHost) || (localStorage.getItem('isHost') === 'true');
+
+  /* ---------------- USER STATS ---------------- */
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    const username = localStorage.getItem('username');
+
+    const index = sortedLeaderboard.findIndex(
+      p =>
+        p.playerId === userId ||
+        p.playerName === username
+    );
+
+    if (index !== -1) {
+      const p = sortedLeaderboard[index];
+
+      setUserScore({
+        rank: index + 1,
+        score: p.score ?? 0,
+        correctCount: p.correctCount ?? 0,
+        totalQuestions: p.totalQuestions ?? 0,
+        accuracy: p.accuracy ?? 0,
+        writtenCount: p.writtenCount ?? 0,
+        writtenAccuracy: p.writtenAccuracy ?? 0,
+        time: p.time ?? '--:--'
+      });
+    }
+  }, [sortedLeaderboard]);
+
+  // Stop confetti after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowConfetti(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleBackToDashboard = () => {
+    // Clear quiz-related data
+    localStorage.removeItem('isHost');
+    localStorage.removeItem('quizCode');
+    localStorage.removeItem('latestLeaderboard');
+    localStorage.removeItem('questionType');
+
+    const hasUser = Boolean(localStorage.getItem('user'));
+    navigate(hasUser ? '/dashboard' : '/login');
+  };
+
+  // Add bounce animation for medals
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={styles.wrapper}>
+        <div style={styles.main}>
+          <div style={styles.emptyState}>
+            <p>Loading results...</p>
           </div>
         </div>
       </div>
+    );
+  }
+
+  const showPersonalStats = !isHost && userScore.score !== '-';
+  const scoreLabel = isWrittenOnly ? 'Written Accuracy' : 'Score';
+  const showMcqAccuracy = !isMCQ && !isWrittenOnly;
+  const showWrittenAccuracyColumn = !isMCQ && !isWrittenOnly;
+
+  return (
+    <>
+      {showConfetti && sortedLeaderboard.length > 0 && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.3}
+        />
+      )}
+      <div style={styles.wrapper}>
+        <div style={styles.main}>
+          <h1 style={styles.title}>Quiz Results</h1>
+
+        {sortedLeaderboard.length === 0 ? (
+          <div style={styles.emptyState}>
+            <p>No results yet.</p>
+            <button style={styles.primaryBtn} onClick={handleBackToDashboard}>
+              Back to Dashboard
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* -------- PERSONAL STATS -------- */}
+            {showPersonalStats && (
+              <div style={styles.personalStatsContainer}>
+                <h2 style={{ marginBottom: '15px' }}>Your Performance</h2>
+
+                <div style={styles.personalStatsGrid}>
+                  <div style={styles.statBox}>
+                    <div style={styles.statLabel}>{scoreLabel}</div>
+                    <div style={styles.statValueLarge}>{formatScore(userScore)}</div>
+                  </div>
+
+                  <div style={styles.statBox}>
+                    <div style={styles.statLabel}>Rank</div>
+                    <div style={styles.statValueLarge}>{userScore.rank}</div>
+                  </div>
+
+                  {showMcqAccuracy && (
+                    <>
+                      <div style={styles.statBox}>
+                        <div style={styles.statLabel}>MCQ Accuracy</div>
+                        <div style={styles.statValueLarge}>{userScore.accuracy}%</div>
+                      </div>
+
+                      <div style={styles.statBox}>
+                        <div style={styles.statLabel}>Written Accuracy</div>
+                        <div style={styles.statValueLarge}>
+                          {userScore.writtenAccuracy}%
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* -------- WINNER PODIUM -------- */}
+            {sortedLeaderboard.length >= 3 && (
+              <div style={styles.podiumContainer}>
+                <h2 style={{ textAlign: 'center', marginBottom: '30px', color: '#6366f1' }}>🏆 Top Winners 🏆</h2>
+                <div style={styles.podiumWrapper}>
+                  {/* 2nd Place - Left */}
+                  <div style={styles.podiumItem}>
+                    <div style={styles.playerInfo}>
+                      <div style={styles.medalLarge}>🥈</div>
+                      <div style={styles.playerName}>{sortedLeaderboard[1]?.playerName || 'Player 2'}</div>
+                      <div style={styles.playerScore}>{formatScore(sortedLeaderboard[1])}</div>
+                    </div>
+                    <div style={{ ...styles.podiumBar, height: '120px', background: 'linear-gradient(135deg, #c0c0c0, #e8e8e8)' }}>
+                      <div style={styles.rankLabel}>2</div>
+                    </div>
+                  </div>
+
+                  {/* 1st Place - Center */}
+                  <div style={styles.podiumItem}>
+                    <div style={styles.playerInfo}>
+                      <div style={styles.medalLarge}>🥇</div>
+                      <div style={{ ...styles.playerName, fontSize: '1.3rem', fontWeight: 'bold' }}>
+                        {sortedLeaderboard[0]?.playerName || 'Player 1'}
+                      </div>
+                      <div style={{ ...styles.playerScore, fontSize: '1.2rem' }}>
+                        {formatScore(sortedLeaderboard[0])}
+                      </div>
+                    </div>
+                    <div style={{ ...styles.podiumBar, height: '160px', background: 'linear-gradient(135deg, #ffd700, #ffed4e)' }}>
+                      <div style={{ ...styles.rankLabel, fontSize: '2rem' }}>1</div>
+                    </div>
+                  </div>
+
+                  {/* 3rd Place - Right */}
+                  <div style={styles.podiumItem}>
+                    <div style={styles.playerInfo}>
+                      <div style={styles.medalLarge}>🥉</div>
+                      <div style={styles.playerName}>{sortedLeaderboard[2]?.playerName || 'Player 3'}</div>
+                      <div style={styles.playerScore}>{formatScore(sortedLeaderboard[2])}</div>
+                    </div>
+                    <div style={{ ...styles.podiumBar, height: '100px', background: 'linear-gradient(135deg, #cd7f32, #e6a57e)' }}>
+                      <div style={styles.rankLabel}>3</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* -------- LEADERBOARD TABLE -------- */}
+            <div style={styles.leaderboardContainer}>
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Rank</th>
+                      <th style={styles.th}>Player</th>
+                      <th style={styles.th}>{scoreLabel}</th>
+                      {showMcqAccuracy && <th style={styles.th}>MCQ Accuracy</th>}
+                      {showWrittenAccuracyColumn && <th style={styles.th}>Written Accuracy</th>}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {sortedLeaderboard.map((p, index) => (
+                      <tr key={index} style={styles.tr}>
+                        <td style={styles.td}>
+                          {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                        </td>
+
+                        <td style={{ ...styles.td, textAlign: 'left' }}>
+                          {p.playerName || 'Player'}
+                        </td>
+
+                        <td style={styles.td}>{formatScore(p)}</td>
+                        {showMcqAccuracy && <td style={styles.td}>{p.accuracy ?? 0}%</td>}
+                        {showWrittenAccuracyColumn && <td style={styles.td}>{p.writtenAccuracy ?? 0}%</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={styles.buttonContainer}>
+              <button
+                style={styles.primaryBtn}
+                onClick={handleBackToDashboard}
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
+    </>
   );
 }
-
 const styles = {
-  container: {
-    maxWidth: '1000px',
-    margin: '0 auto',
+  wrapper: {
+    minHeight: '100vh',
+    width: '100vw',
+    background: 'var(--bg)',
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     padding: '2rem 1rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  main: {
+    position: 'relative',
+    zIndex: 2,
+    maxWidth: '1200px',
+    width: '100%',
+    margin: '0 auto',
   },
   title: {
     textAlign: 'center',
@@ -151,6 +344,13 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',
+  },
+  emptyState: {
+    backgroundColor: 'var(--card-bg)',
+    borderRadius: '12px',
+    padding: '2rem',
+    textAlign: 'center',
+    boxShadow: 'var(--shadow)',
   },
   tableContainer: {
     overflowX: 'auto',
@@ -172,31 +372,15 @@ const styles = {
   },
   tr: {
     borderBottom: '1px solid var(--border-color)',
-    '&:last-child': {
-      borderBottom: 'none',
-    },
   },
   topThree: {
     backgroundColor: 'rgba(255,255,255,0.02)',
-    '&:nth-child(1)': {
-      backgroundColor: 'rgba(255,255,255,0.02)',
-      '& td': {
-        fontWeight: 'bold',
-        color: '#b45309',
-      },
-    },
   },
   secondPlace: {
     backgroundColor: '#f0fdf4',
-    '& td': {
-      color: '#047857',
-    },
   },
   thirdPlace: {
     backgroundColor: '#eff6ff',
-    '& td': {
-      color: '#1d4ed8',
-    },
   },
   td: {
     padding: '1rem',
@@ -218,7 +402,7 @@ const styles = {
   accuracyBarContainer: {
     position: 'relative',
     height: '24px',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(37,99,235,0.12)',
     borderRadius: '12px',
     overflow: 'hidden',
   },
@@ -226,16 +410,18 @@ const styles = {
     height: '100%',
     borderRadius: '12px',
     transition: 'width 0.5s ease-in-out',
+    backgroundColor: '#2563eb',
   },
   accuracyText: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    color: 'var(--button-text)',
-    fontSize: '0.75rem',
-    fontWeight: '600',
-    textShadow: '0 0 2px rgba(0,0,0,0.5)',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#ffffff',
+    fontSize: '0.8rem',
+    fontWeight: '700',
+    textShadow: '0 0 4px rgba(0,0,0,0.35)',
   },
   userStatsCard: {
     backgroundColor: 'var(--card-bg)',
@@ -271,10 +457,40 @@ const styles = {
     fontSize: '0.875rem',
     color: 'var(--muted)',
   },
+  personalStatsContainer: {
+    backgroundColor: 'var(--card-bg)',
+    borderRadius: '12px',
+    padding: '2rem',
+    marginBottom: '2rem',
+    boxShadow: 'var(--shadow)',
+  },
+  personalStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '1.5rem',
+  },
+  statBox: {
+    backgroundColor: 'var(--bg)',
+    borderRadius: '8px',
+    padding: '1.5rem',
+    textAlign: 'center',
+    border: '2px solid var(--accent)',
+  },
+  statValueLarge: {
+    fontSize: '2rem',
+    fontWeight: '700',
+    color: 'var(--accent)',
+    marginTop: '0.5rem',
+  },
   buttonGroup: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
+  },
+  buttonContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: '1rem',
   },
   primaryBtn: {
     backgroundColor: 'var(--accent)',
@@ -287,9 +503,6 @@ const styles = {
     fontWeight: '600',
     transition: 'background-color 0.2s',
     width: '100%',
-    '&:hover': {
-      backgroundColor: '#4338ca',
-    },
   },
   secondaryBtn: {
     backgroundColor: 'var(--card-bg)',
@@ -302,9 +515,66 @@ const styles = {
     fontWeight: '600',
     transition: 'background-color 0.2s',
     width: '100%',
-    '&:hover': {
-      backgroundColor: 'rgba(255,255,255,0.02)',
-    },
+  },
+  podiumContainer: {
+    backgroundColor: 'var(--card-bg)',
+    borderRadius: '12px',
+    padding: '2rem',
+    marginBottom: '2rem',
+    boxShadow: 'var(--shadow)',
+  },
+  podiumWrapper: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: '1.5rem',
+    marginTop: '2rem',
+    minHeight: '280px',
+  },
+  podiumItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    flex: '0 0 180px',
+  },
+  playerInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '1rem',
+  },
+  medalLarge: {
+    fontSize: '3rem',
+    marginBottom: '0.5rem',
+    animation: 'bounce 2s infinite',
+  },
+  playerName: {
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    color: 'var(--text)',
+    marginBottom: '0.25rem',
+    textAlign: 'center',
+  },
+  playerScore: {
+    fontSize: '1rem',
+    color: 'var(--accent)',
+    fontWeight: '700',
+  },
+  podiumBar: {
+    width: '100%',
+    borderRadius: '8px 8px 0 0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    transition: 'transform 0.3s ease',
+    cursor: 'pointer',
+  },
+  rankLabel: {
+    fontSize: '1.5rem',
+    fontWeight: '900',
+    color: '#fff',
+    textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
   },
 };
 

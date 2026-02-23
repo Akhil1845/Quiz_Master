@@ -123,4 +123,79 @@ public class GeminiService {
             throw new RuntimeException("Failed calling Gemini API: " + ex.getMessage(), ex);
         }
     }
+
+    public int evaluateWrittenAnswer(String question, String referenceAnswer, String participantAnswer) {
+        if (referenceAnswer == null || referenceAnswer.trim().isEmpty() || 
+            participantAnswer == null || participantAnswer.trim().isEmpty()) {
+            return 0;
+        }
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Create a prompt for AI to evaluate the answer accuracy
+        String evaluationPrompt = String.format(
+            "You are an educational assessment expert. Evaluate the following written answer on a scale of 0-100.\n\n" +
+            "Question: %s\n" +
+            "Expected Answer: %s\n" +
+            "Student Answer: %s\n\n" +
+            "Provide ONLY a single number (0-100) representing the accuracy percentage. " +
+            "Consider if the student's answer captures the key concepts even if worded differently. " +
+            "Give full marks (100) only if the answer is essentially correct. " +
+            "Consider partial credit for answers that show understanding but miss some details.",
+            question.trim(), referenceAnswer.trim(), participantAnswer.trim()
+        );
+
+        Map<String, Object> textPart = new HashMap<>();
+        textPart.put("text", evaluationPrompt);
+
+        Map<String, Object> parts = new HashMap<>();
+        parts.put("parts", new Object[]{textPart});
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("contents", new Object[]{parts});
+
+        try {
+            System.out.println("[AI-EVAL] Evaluating written answer...");
+            
+            Map<String, Object> response = restTemplate.postForObject(
+                    GEMINI_URL + apiKey,
+                    body,
+                    Map.class
+            );
+
+            if (response == null || !response.containsKey("candidates")) {
+                System.out.println("[AI-EVAL] Invalid response format, returning 0");
+                return 0;
+            }
+
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> candidates = (java.util.List<Map<String, Object>>) response.get("candidates");
+            if (candidates == null || candidates.isEmpty()) {
+                return 0;
+            }
+
+            Map<String, Object> candidate = candidates.get(0);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> content = (Map<String, Object>) candidate.get("content");
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> responseParts = (java.util.List<Map<String, Object>>) content.get("parts");
+            
+            String aiResponse = (String) responseParts.get(0).get("text");
+            if (aiResponse != null) {
+                // Extract the numeric accuracy from the AI response
+                aiResponse = aiResponse.trim().replaceAll("[^0-9]", "");
+                if (!aiResponse.isEmpty()) {
+                    int accuracy = Integer.parseInt(aiResponse);
+                    // Ensure accuracy is between 0 and 100
+                    accuracy = Math.max(0, Math.min(100, accuracy));
+                    System.out.println("[AI-EVAL] Accuracy score: " + accuracy + "%");
+                    return accuracy;
+                }
+            }
+            return 0;
+        } catch (Exception ex) {
+            System.out.println("[AI-EVAL] Error evaluating answer: " + ex.getMessage());
+            return 0;
+        }
+    }
 }

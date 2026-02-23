@@ -53,6 +53,32 @@ function WaitingRoom() {
       console.log('WebSocket URL:', wsUrl.toString());
       setIsLoading(false);
       setConnectionError(false);
+      
+      // Send quiz info to server when host connects
+      if (currentQuiz) {
+        newWs.send(JSON.stringify({
+          type: 'quiz-info',
+          quiz: {
+            quizCode: currentQuiz.quizCode,
+            subject: currentQuiz.subject,
+            difficulty: currentQuiz.difficulty,
+            numQuestions: currentQuiz.numQuestions,
+            maxParticipants: currentQuiz.maxParticipants,
+            timePerQuestion: currentQuiz.timePerQuestion,
+            showTimer: currentQuiz.showTimer,
+            questionType: currentQuiz.questionType,
+            questions: (currentQuiz.questions || []).map((q, idx) => ({
+              id: q.id !== undefined && q.id !== null ? String(q.id) : `q${idx + 1}`,
+              question: q.question,
+              type: q.type || currentQuiz.questionType || 'MCQ',
+              correctAnswer: q.correctAnswer,
+              options: q.options,
+              points: q.points
+            }))
+          }
+        }));
+        console.log('📤 Quiz info sent to server with questions');
+      }
     };
 
     newWs.onmessage = (event) => {
@@ -85,11 +111,15 @@ function WaitingRoom() {
           case 'participants-update':
             console.log('📋 Initial participants list:', data.participants);
             // Initial list of participants when host connects
-            setParticipants(data.participants.map(p => ({
-              id: p.userId,
-              username: p.username,
-              joinedAt: new Date() // We don't have the actual join time here
-            })));
+            setParticipants(data.participants.map(p => {
+              const parsedDate = p.joinedAt ? new Date(p.joinedAt) : new Date();
+              const joinedAt = isNaN(parsedDate) ? new Date() : parsedDate; // fallback if bad date arrives
+              return {
+                id: p.userId,
+                username: p.username,
+                joinedAt,
+              };
+            }));
             break;
             
           default:
@@ -132,14 +162,19 @@ function WaitingRoom() {
         quizData: quiz
       }));
       
+      // Store quiz data including questions in localStorage for QuizScreen to access
+      localStorage.setItem('currentQuiz', JSON.stringify(quiz));
+      
       // Mark this client as host so QuizScreen reconnects as host
       localStorage.setItem('isHost', 'true');
       // Navigate to quiz screen
-      navigate(`/quiz/${quiz.quizCode}`);
+      navigate(`/quiz/${quiz.quizCode}`, { state: { isHost: true } });
     } else {
       console.error('WebSocket not connected');
       // Fallback in case WebSocket is not available
-      navigate(`/quiz/${quiz.quizCode}`);
+      localStorage.setItem('currentQuiz', JSON.stringify(quiz));
+      localStorage.setItem('isHost', 'true');
+      navigate(`/quiz/${quiz.quizCode}`, { state: { isHost: true } });
     }
   };
 

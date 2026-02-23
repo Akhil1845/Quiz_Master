@@ -2,9 +2,13 @@ package com.quizmaster.quizmaster.repository;
 
 import com.quizmaster.quizmaster.entity.Result;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
 import java.util.List;
 
+@Repository
 public interface ResultRepository extends JpaRepository<Result, Long> {
     List<Result> findByQuizId(Long quizId);
-    List<Result> findByUserId(Long userId);
+    List<Result> findByPlayerId(Long playerId);
+    List<Result> findByQuizIdOrderByScoreDesc(Long quizId);
 }

@@ -56,7 +56,11 @@ function Navbar({ user }) {
             style={styles.profileButton}
             onClick={() => setIsProfileOpen(!isProfileOpen)}
           >
-            <FaUserCircle style={styles.avatar} />
+            {user?.avatar ? (
+              <img src={user.avatar} alt="avatar" style={styles.avatarImg} />
+            ) : (
+              <FaUserCircle style={styles.avatar} />
+            )}
             <span style={styles.userName}>{user?.username || user?.name || 'User'}</span>
           </button>
           
@@ -70,7 +74,11 @@ function Navbar({ user }) {
                 transition={{ duration: 0.2 }}
               >
                 <div style={styles.dropdownHeader}>
-                  <FaUserCircle style={styles.dropdownAvatar} />
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="avatar" style={styles.dropdownAvatarImg} />
+                  ) : (
+                    <FaUserCircle style={styles.dropdownAvatar} />
+                  )}
                   <div>
                     <div style={styles.dropdownName}>{user?.username || user?.name || 'User'}</div>
                     <div style={styles.dropdownEmail}>{user?.email || ''}</div>
@@ -208,6 +216,12 @@ const styles = {
     borderRadius: '50%',
     color: '#6e8efb',
   },
+  avatarImg: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+  },
   userName: {
     color: 'var(--text)',
     fontWeight: '500',
@@ -235,6 +249,12 @@ const styles = {
     width: '40px',
     height: '40px',
     color: '#6e8efb',
+  },
+  dropdownAvatarImg: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    objectFit: 'cover',
   },
   dropdownName: {
     fontWeight: '600',

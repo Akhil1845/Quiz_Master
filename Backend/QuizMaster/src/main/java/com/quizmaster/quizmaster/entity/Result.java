@@ -18,27 +18,20 @@ public class Result {
     private Quiz quiz;
 
     @ManyToOne
-    @JoinColumn(name = "participant_id")
-    private Participant participant;
+    @JoinColumn(name = "player_id")
+    private User player;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
-
-    @Column(name = "total_score")
-    private Integer totalScore;
-
-    private Double accuracy;
-
-    @Column(name = "time_taken_seconds")
-    private Integer timeTakenSeconds;
-
-    @Column(name = "rank_position")
-    private Integer rankPosition;
+    private String playerName;
+    private Integer correctAnswers;
+    private Integer totalQuestions;
+    private Double score; // 0-100
+    private Double averageScore; // average score per question
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @PrePersist
-    public void prePersist() { createdAt = LocalDateTime.now(); }
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+    }
 }

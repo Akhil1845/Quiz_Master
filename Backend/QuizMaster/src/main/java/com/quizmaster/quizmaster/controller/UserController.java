@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,6 +18,12 @@ public class UserController {
 
     public UserController(UserRepository userRepository) {
         this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAllUsers() {
+        List<User> users = userRepository.findAll();
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/{id}")
@@ -31,7 +38,6 @@ public class UserController {
         return userRepository.findById(id).map(user -> {
             if (body.containsKey("username")) user.setUsername((String) body.get("username"));
             if (body.containsKey("email")) user.setEmail((String) body.get("email"));
-            if (body.containsKey("avatar")) user.setAvatar((String) body.get("avatar"));
             if (body.containsKey("password")) user.setPassword((String) body.get("password"));
             User saved = userRepository.save(user);
             Map<String, Object> resp = new HashMap<>();

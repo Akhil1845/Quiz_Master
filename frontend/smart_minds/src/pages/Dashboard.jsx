@@ -71,7 +71,6 @@ function Dashboard() {
   const [maxParticipants, setMaxParticipants] = useState(50);
   const [quizCreated, setQuizCreated] = useState(false);
   const [joinQuizCode, setJoinQuizCode] = useState("");
-  const [hasJoinedQuiz, setHasJoinedQuiz] = useState(false);
 
   const navigate = useNavigate();
 
@@ -104,7 +103,7 @@ function Dashboard() {
 
   const handleJoinQuiz = () => {
     if (!joinQuizCode.trim()) return;
-    setHasJoinedQuiz(true);
+    navigate(`/join/${joinQuizCode.trim()}`);
   };
 
   const handleStartQuiz = () => {
@@ -112,7 +111,8 @@ function Dashboard() {
   };
 
   const handleViewLeaderboard = () => {
-    navigate("/leaderboard");
+    const isHost = localStorage.getItem('isHost') === 'true';
+    navigate('/leaderboard', { state: { isHost } });
   };
 
   if (!user) return null;
@@ -179,38 +179,28 @@ function Dashboard() {
             {/* Join Quiz Card - Top */}
             <div style={{ ...styles.card, backgroundColor: 'var(--card-bg)', color: 'var(--text)' }}>
               <h2 style={styles.cardTitle}>Join Quiz</h2>
-              {!hasJoinedQuiz ? (
-                <div style={styles.joinOptions}>
-                  <div style={styles.joinOption}>
-                    <h3 style={styles.optionTitle}>Enter Quiz Code</h3>
-                    <div style={styles.inputContainer}>
-                      <input
-                        type="text"
-                        placeholder="Enter Quiz Code"
-                        value={joinQuizCode}
-                        onChange={(e) => setJoinQuizCode(e.target.value.toUpperCase())}
-                        style={styles.input}
-                        maxLength="6"
-                      />
-                    </div>
-                    <button 
-                      style={styles.primaryBtn}
-                      onClick={handleJoinQuiz}
-                      disabled={!joinQuizCode.trim()}
-                    >
-                      Join Quiz
-                    </button>
+              <div style={styles.joinOptions}>
+                <div style={styles.joinOption}>
+                  <h3 style={styles.optionTitle}>Enter Quiz Code</h3>
+                  <div style={styles.inputContainer}>
+                    <input
+                      type="text"
+                      placeholder="Enter Quiz Code"
+                      value={joinQuizCode}
+                      onChange={(e) => setJoinQuizCode(e.target.value.toUpperCase())}
+                      style={styles.input}
+                      maxLength="6"
+                    />
                   </div>
+                  <button 
+                    style={styles.primaryBtn}
+                    onClick={handleJoinQuiz}
+                    disabled={!joinQuizCode.trim()}
+                  >
+                    Join Quiz
+                  </button>
                 </div>
-              ) : (
-                <div style={styles.waitingContainer}>
-                  <p style={styles.waitingText}>Waiting for quiz to start...</p>
-                  <p style={styles.playerCount}>
-                    <span>👥</span> Players Joined: {playersJoined + 1} / {maxParticipants}
-                  </p>
-                  <div className="spinner" style={styles.spinner}></div>
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Create Quiz Card - Bottom */}

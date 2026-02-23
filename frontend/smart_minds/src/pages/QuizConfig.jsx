@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from "../components/Navbar";
 import { QRCodeSVG } from 'qrcode.react';
+import config from '../config';
 
 function QuizConfig() {
   const navigate = useNavigate();
@@ -32,6 +33,31 @@ function QuizConfig() {
     customPrompt: ''
   });
 
+  const [isCustomPromptModified, setIsCustomPromptModified] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
+
+  // Add spinner animation CSS
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
+  // Auto-generate prompt when quiz settings change
+  useEffect(() => {
+    if (formData.questionSource === 'AI' && !isCustomPromptModified) {
+      const autoPrompt = generatePromptPreview();
+      setFormData(prev => ({ ...prev, customPrompt: autoPrompt }));
+    }
+  }, [formData.subject, formData.difficulty, formData.questionType, formData.numQuestions, formData.questionSource, isCustomPromptModified]);
+
   // Handle drag and drop events
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -42,24 +68,155 @@ function QuizConfig() {
     setIsDragging(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file && file.name.endsWith('.json')) {
-      setFormData(prev => ({ ...prev, questionsFile: file }));
+      try {
+        const fileContent = await file.text();
+        const parsedData = JSON.parse(fileContent);
+        
+        console.log('Parsed JSON:', parsedData);
+        
+        // Auto-extract subject and questions from file
+        let subject = formData.subject; // Keep current if not in file
+        let extractedQuestions = null;
+        
+        // Check different ways subject might be stored
+        if (parsedData.subject) {
+          subject = parsedData.subject;
+          console.log('Subject found in parsedData.subject:', subject);
+        } else if (parsedData.Subject) {
+          subject = parsedData.Subject;
+          console.log('Subject found in parsedData.Subject:', subject);
+        } else if (Array.isArray(parsedData) && parsedData[0]?.subject) {
+          subject = parsedData[0].subject;
+          console.log('Subject found in first question:', subject);
+        }
+        
+        // Map common subject variations to dropdown values
+        const subjectMapping = {
+          'General Knowledge': 'GK',
+          'general knowledge': 'GK',
+          'GK': 'GK',
+          'Java': 'Java',
+          'java': 'Java',
+          'DBMS': 'DBMS',
+          'dbms': 'DBMS',
+          'JavaScript': 'JavaScript',
+          'javascript': 'JavaScript',
+          'js': 'JavaScript',
+          'Python': 'Python',
+          'python': 'Python'
+        };
+        
+        subject = subjectMapping[subject] || subject;
+        
+        // Check if it's an array of questions or object with questions field
+        if (Array.isArray(parsedData)) {
+          extractedQuestions = parsedData;
+        } else if (parsedData.questions && Array.isArray(parsedData.questions)) {
+          extractedQuestions = parsedData.questions;
+        } else if (parsedData.Questions && Array.isArray(parsedData.Questions)) {
+          extractedQuestions = parsedData.Questions;
+        }
+        
+        console.log('Extracted:', { subject, numQuestions: extractedQuestions?.length });
+        
+        // Update form with extracted data
+        setFormData(prev => ({
+          ...prev,
+          questionsFile: file,
+          subject: subject,
+          numQuestions: extractedQuestions ? extractedQuestions.length : prev.numQuestions
+        }));
+        
+      } catch (error) {
+        console.error('Error parsing JSON file:', error);
+        alert('Invalid JSON file. Please make sure your file contains valid JSON.');
+      }
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setFormData(prev => ({ ...prev, questionsFile: file }));
+      try {
+        const fileContent = await file.text();
+        const parsedData = JSON.parse(fileContent);
+        
+        console.log('Parsed JSON:', parsedData);
+        
+        // Auto-extract subject and questions from file
+        let subject = formData.subject; // Keep current if not in file
+        let extractedQuestions = null;
+        
+        // Check different ways subject might be stored
+        if (parsedData.subject) {
+          subject = parsedData.subject;
+          console.log('Subject found in parsedData.subject:', subject);
+        } else if (parsedData.Subject) {
+          subject = parsedData.Subject;
+          console.log('Subject found in parsedData.Subject:', subject);
+        } else if (Array.isArray(parsedData) && parsedData[0]?.subject) {
+          subject = parsedData[0].subject;
+          console.log('Subject found in first question:', subject);
+        }
+        
+        // Map common subject variations to dropdown values
+        const subjectMapping = {
+          'General Knowledge': 'GK',
+          'general knowledge': 'GK',
+          'GK': 'GK',
+          'Java': 'Java',
+          'java': 'Java',
+          'DBMS': 'DBMS',
+          'dbms': 'DBMS',
+          'JavaScript': 'JavaScript',
+          'javascript': 'JavaScript',
+          'js': 'JavaScript',
+          'Python': 'Python',
+          'python': 'Python'
+        };
+        
+        subject = subjectMapping[subject] || subject;
+        
+        // Check if it's an array of questions or object with questions field
+        if (Array.isArray(parsedData)) {
+          extractedQuestions = parsedData;
+        } else if (parsedData.questions && Array.isArray(parsedData.questions)) {
+          extractedQuestions = parsedData.questions;
+        } else if (parsedData.Questions && Array.isArray(parsedData.Questions)) {
+          extractedQuestions = parsedData.Questions;
+        }
+        
+        console.log('Extracted:', { subject, numQuestions: extractedQuestions?.length });
+        
+        // Update form with extracted data
+        setFormData(prev => ({
+          ...prev,
+          questionsFile: file,
+          subject: subject,
+          numQuestions: extractedQuestions ? extractedQuestions.length : prev.numQuestions
+        }));
+        
+      } catch (error) {
+        console.error('Error parsing JSON file:', error);
+        alert('Invalid JSON file. Please make sure your file contains valid JSON.');
+        setFormData(prev => ({ ...prev, questionsFile: null }));
+      }
     }
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // Track if user manually modifies the custom prompt
+    if (name === 'customPrompt') {
+      setIsCustomPromptModified(true);
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -79,28 +236,116 @@ function QuizConfig() {
     const subject = formData.subject || 'Topic';
     const count = formData.numQuestions || 1;
     const difficulty = parseInt(formData.difficulty || '0', 10);
+    const questionType = formData.questionType || 'MCQ';
+    
+    // Difficulty level instructions
     let levelInstruction = '';
-    if (difficulty === 0) levelInstruction = 'Easy: create definition-based questions (straightforward facts).';
-    else if (difficulty === 1) levelInstruction = 'Medium: create conceptual questions that test understanding.';
-    else levelInstruction = 'Hard: create scenario-based questions requiring analysis.';
+    if (difficulty === 0) {
+      levelInstruction = 'Easy level: Create definition-based questions with straightforward facts and basic concepts.';
+    } else if (difficulty === 1) {
+      levelInstruction = 'Medium level: Create conceptual questions that test understanding and application of knowledge.';
+    } else {
+      levelInstruction = 'Hard level: Create scenario-based questions requiring critical thinking, analysis, and problem-solving.';
+    }
+    
+    // Question type specific instructions
+    let typeInstruction = '';
+    if (questionType === 'MCQ') {
+      typeInstruction = 'All questions must be Multiple Choice Questions (MCQ) with exactly 4 options.';
+    } else if (questionType === 'Written') {
+      typeInstruction = 'All questions must be written/descriptive questions requiring detailed answers.';
+    } else {
+      typeInstruction = 'Create a mix of Multiple Choice Questions (MCQ) and written/descriptive questions.';
+    }
+    
+    // Subject-specific context
+    let subjectContext = '';
+    switch(subject) {
+      case 'Java':
+        subjectContext = 'Focus on Java programming concepts, syntax, OOP principles, collections, exception handling, and best practices.';
+        break;
+      case 'DBMS':
+        subjectContext = 'Focus on Database Management System concepts including SQL, normalization, transactions, indexing, and database design.';
+        break;
+      case 'GK':
+        subjectContext = 'Focus on General Knowledge covering current affairs, history, geography, science, sports, and general awareness topics.';
+        break;
+      case 'JavaScript':
+        subjectContext = 'Focus on JavaScript programming including ES6+ features, DOM manipulation, async programming, and modern frameworks.';
+        break;
+      case 'Python':
+        subjectContext = 'Focus on Python programming including syntax, data structures, libraries, OOP concepts, and best practices.';
+        break;
+      default:
+        subjectContext = `Focus on ${subject} related topics and concepts.`;
+    }
 
-    return `You are an exam question generator.\nGenerate exactly ${count} multiple-choice questions about '${subject}'.\n${levelInstruction}\nEach question must be an object with keys: "question" (string), "options" (array of 4 strings), and "correctAnswer" (one of the option strings).\nReturn ONLY a JSON array of these objects and nothing else (no prose, no numbering, no backticks).`;
+    return `You are an expert exam question generator.
+
+Subject: ${subject}
+${subjectContext}
+
+Difficulty: ${difficulty === 0 ? 'Easy' : difficulty === 1 ? 'Medium' : 'Hard'}
+${levelInstruction}
+
+Question Type: ${questionType}
+${typeInstruction}
+
+Task: Generate exactly ${count} high-quality questions following these requirements:
+1. Each question should be clear, unambiguous, and relevant to ${subject}
+2. Questions should match the ${difficulty === 0 ? 'Easy' : difficulty === 1 ? 'Medium' : 'Hard'} difficulty level
+3. For MCQ questions: provide exactly 4 options with only ONE correct answer
+4. Ensure variety in topics within ${subject}
+5. Avoid repetitive or overly similar questions
+
+Output Format:
+Return ONLY a valid JSON array. Each question must be an object with these exact keys:
+- "question": (string) The question text
+- "options": (array of 4 strings) The answer choices
+- "correctAnswer": (string) One of the options that is the correct answer
+
+Important: Return ONLY the JSON array with no additional text, explanations, markdown formatting, or backticks.`;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setLoadingStatus('');
 
     if (formData.questionSource === 'Manual' && !formData.questionsFile) {
       alert('Please upload a questions file');
+      setIsLoading(false);
       return;
     }
 
     try {
       let questions = [];
       if (formData.questionSource === 'Manual') {
+        setLoadingStatus('Parsing questions file...');
         try {
           const fileContent = await formData.questionsFile.text();
-          questions = JSON.parse(fileContent);
+          const parsedData = JSON.parse(fileContent);
+          
+          // Extract questions array - handle different JSON structures
+          if (Array.isArray(parsedData)) {
+            // File contains array of questions directly
+            questions = parsedData;
+          } else if (parsedData.questions && Array.isArray(parsedData.questions)) {
+            // File contains object with questions property
+            questions = parsedData.questions;
+          } else if (parsedData.Questions && Array.isArray(parsedData.Questions)) {
+            // File contains object with Questions property (capital Q)
+            questions = parsedData.Questions;
+          } else {
+            throw new Error('Invalid questions format. Expected an array or object with "questions" property.');
+          }
+
+          // Normalize manual questions: set default type and points
+          questions = questions.map(q => ({
+            ...q,
+            type: q.type || (q.options ? 'MCQ' : 'WRITTEN'),
+            points: q.points ?? 1,
+          }));
 
           if (!Array.isArray(questions)) {
             throw new Error('Invalid questions format. Expected an array of questions.');
@@ -114,11 +359,15 @@ function QuizConfig() {
         } catch (error) {
           console.error('Error parsing questions file:', error);
           alert(`Error parsing questions file: ${error.message}`);
+          setIsLoading(false);
           return;
         }
       } else if (formData.questionSource === 'AI') {
+        setLoadingStatus('🤖 Generating questions with AI... (this may take 30-60 seconds)');
         const promptToSend = formData.customPrompt || generatePromptPreview();
-        const res = await fetch('http://localhost:8086/ai/generate', {
+        console.log('Sending AI generation request:', promptToSend);
+        
+        const res = await fetch(`${config.API_BASE_URL}/ai/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: promptToSend
@@ -126,21 +375,51 @@ function QuizConfig() {
 
         if (!res.ok) {
           const txt = await res.text();
-          throw new Error('AI generation failed: ' + (txt || res.statusText));
+          console.error('AI generation failed:', txt);
+          throw new Error('AI generation failed. Make sure the backend server is running at ' + config.API_BASE_URL + '. Error: ' + (txt || res.statusText));
         }
 
         const text = await res.text();
+        console.log('AI response received:', text);
         const data = JSON.parse(text);
         if (!Array.isArray(data)) throw new Error('AI returned invalid format. Expected JSON array.');
         questions = data;
+        setLoadingStatus('✅ Questions generated! Saving quiz...');
       }
 
       const quizCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Save quiz and questions to database
+      if (formData.questionSource === 'AI') {
+        setLoadingStatus('💾 Saving quiz to database...');
+        const saveResponse = await fetch(`${config.API_BASE_URL}/ai/save-quiz`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quizCode,
+            title: formData.title || `${formData.subject} Quiz`,
+            subject: formData.subject,
+            difficulty: formData.difficulty,
+            questionType: formData.questionType,
+            questionSource: formData.questionSource,
+            numQuestions: questions.length,
+            hostUserId: user?.id,
+            questions: questions
+          })
+        });
+
+        if (!saveResponse.ok) {
+          const error = await saveResponse.text();
+          throw new Error('Failed to save quiz to database: ' + error);
+        }
+      }
+
+      setLoadingStatus('✨ Preparing waiting room...');
       const quizConfig = {
         ...formData,
         quizCode,
         questions: formData.questionSource === 'Manual' ? questions : null,
-        numQuestions: formData.questionSource === 'Manual' ? questions.length : formData.numQuestions,
+        numQuestions: questions.length,
         createdAt: new Date().toISOString(),
         status: 'waiting'
       };
@@ -154,6 +433,7 @@ function QuizConfig() {
     } catch (error) {
       console.error('Error:', error);
       alert(error.message || 'Error processing quiz. Please try again.');
+      setIsLoading(false);
     }
   };
 
@@ -167,6 +447,16 @@ function QuizConfig() {
   return (
     <div style={{ ...styles.wrapper, background: 'var(--bg)' }}>
       <Navbar user={user} onLogout={handleLogout} />
+
+      {isLoading && (
+        <div style={styles.loadingOverlay}>
+          <div style={styles.loadingModal}>
+            <div style={styles.spinner}></div>
+            <h2 style={styles.loadingText}>{loadingStatus || 'Creating quiz...'}</h2>
+            <p style={styles.loadingSubtext}>This may take up to a minute for AI generation</p>
+          </div>
+        </div>
+      )}
 
       <main style={styles.main}>
         <div style={styles.container}>
@@ -346,7 +636,10 @@ function QuizConfig() {
                           <span style={styles.labelText}>Custom Prompt</span>
                           <button
                             type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, customPrompt: '' }))}
+                            onClick={() => {
+                              setIsCustomPromptModified(false);
+                              setFormData(prev => ({ ...prev, customPrompt: generatePromptPreview() }));
+                            }}
                             style={styles.smallButton}
                             disabled={!formData.customPrompt}
                           >
@@ -357,12 +650,12 @@ function QuizConfig() {
                           name="customPrompt"
                           value={formData.customPrompt}
                           onChange={handleChange}
-                          placeholder={generatePromptPreview()}
+                          placeholder="AI prompt will be automatically generated based on your selections..."
                           style={styles.textarea}
-                          rows={6}
+                          rows={8}
                         />
                         <div style={styles.helpText}>
-                          Customize the prompt for AI question generation
+                          The prompt is automatically generated based on your quiz settings. You can customize it manually if needed.
                         </div>
                       </label>
                     </div>
@@ -380,9 +673,10 @@ function QuizConfig() {
                 </button>
                 <button
                   type="submit"
-                  style={styles.primaryBtn}
+                  style={{...styles.primaryBtn, opacity: isLoading ? 0.6 : 1, cursor: isLoading ? 'not-allowed' : 'pointer'}}
+                  disabled={isLoading}
                 >
-                  Create Quiz
+                  {isLoading ? 'Creating...' : 'Create Quiz'}
                 </button>
               </div>
             </form>
@@ -705,6 +999,46 @@ const styles = {
   },
   'input[type="checkbox"]:checked + $toggleSlider:before': {
     transform: 'translateX(20px)',
+  },
+  loadingOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+  },
+  loadingModal: {
+    backgroundColor: 'var(--card-bg)',
+    borderRadius: '12px',
+    padding: '3rem 2rem',
+    textAlign: 'center',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+    minWidth: '400px',
+    maxWidth: '500px',
+  },
+  spinner: {
+    border: '4px solid rgba(255, 255, 255, 0.3)',
+    borderTop: '4px solid var(--accent)',
+    borderRadius: '50%',
+    width: '50px',
+    height: '50px',
+    animation: 'spin 1s linear infinite',
+    margin: '0 auto 20px',
+  },
+  loadingText: {
+    color: 'var(--text)',
+    fontSize: '1.3rem',
+    fontWeight: '600',
+    marginBottom: '10px',
+  },
+  loadingSubtext: {
+    color: 'var(--muted)',
+    fontSize: '0.9rem',
   },
 };
 
