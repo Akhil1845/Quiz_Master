@@ -605,9 +605,24 @@ wss.on('connection', (ws, req) => {
                     }
                   }
                   
+                  // Normalize correct answer to option text when it is an index/letter
+                  const rawCorrect = ans.referenceAnswer ?? hostQuestion?.correctAnswer ?? '';
+                  let correctAnswerText = String(rawCorrect).trim();
+                  if (hostQuestion && Array.isArray(hostQuestion.options)) {
+                    if (/^[0-3]$/.test(correctAnswerText)) {
+                      const optionIndex = parseInt(correctAnswerText);
+                      const optionText = hostQuestion.options[optionIndex];
+                      if (optionText) correctAnswerText = optionText;
+                    } else if (/^[A-D]$/i.test(correctAnswerText)) {
+                      const optionIndex = { A: 0, B: 1, C: 2, D: 3 }[correctAnswerText.toUpperCase()];
+                      const optionText = hostQuestion.options[optionIndex];
+                      if (optionText) correctAnswerText = optionText;
+                    }
+                  }
+
                   // Normalize both to lowercase for comparison
                   const participantAnswer = participantAnswerText.toLowerCase();
-                  const correctAnswer = String(ans.referenceAnswer || '').trim().toLowerCase();
+                  const correctAnswer = String(correctAnswerText || '').trim().toLowerCase();
                   
                   console.log(`[SCORING] Q${ans.questionId}: answer="${participantAnswer}" vs correct="${correctAnswer}"`);
                   

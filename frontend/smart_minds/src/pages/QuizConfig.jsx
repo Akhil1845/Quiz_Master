@@ -253,9 +253,9 @@ function QuizConfig() {
     if (questionType === 'MCQ') {
       typeInstruction = 'All questions must be Multiple Choice Questions (MCQ) with exactly 4 options.';
     } else if (questionType === 'Written') {
-      typeInstruction = 'All questions must be written/descriptive questions requiring detailed answers.';
+      typeInstruction = 'All questions must be written/descriptive questions requiring detailed, meaningful answers (NOT one-word answers). Questions should ask students to explain, describe, compare, or analyze concepts.';
     } else {
-      typeInstruction = 'Create a mix of Multiple Choice Questions (MCQ) and written/descriptive questions.';
+      typeInstruction = 'Create a mix of Multiple Choice Questions (MCQ) and written/descriptive questions. For written questions, ensure they require detailed explanations, not single-word answers.';
     }
     
     // Subject-specific context
@@ -280,6 +280,38 @@ function QuizConfig() {
         subjectContext = `Focus on ${subject} related topics and concepts.`;
     }
 
+    // Different output format based on question type
+    let outputFormat = '';
+    if (questionType === 'MCQ') {
+      outputFormat = `Output Format:
+Return ONLY a valid JSON array. Each question must be an object with these exact keys:
+- "question": (string) The question text
+- "options": (array of 4 strings) The answer choices
+- "correctAnswer": (string) One of the options that is the correct answer`;
+    } else if (questionType === 'Written') {
+      outputFormat = `Output Format:
+Return ONLY a valid JSON array. Each question must be an object with these exact keys:
+- "question": (string) The question text that requires a descriptive answer
+- "options": (array) Leave as empty array []
+- "correctAnswer": (string) A complete, detailed reference answer (minimum 3-5 words, preferably a full sentence or more)
+
+IMPORTANT for Written questions:
+- Questions should require meaningful descriptive answers, NOT single-word responses
+- Avoid questions like "What is X called?" that can be answered in one word
+- Instead ask: "Explain what X is and how it works", "Describe the key differences between X and Y", etc.
+- The correctAnswer should be a comprehensive answer (at least one complete sentence)`;
+    } else {
+      outputFormat = `Output Format:
+Return ONLY a valid JSON array. Each question must be an object with these exact keys:
+- "question": (string) The question text
+- "options": (array) For MCQ: array of 4 strings; For Written: empty array []
+- "correctAnswer": (string) For MCQ: one of the options; For Written: a detailed reference answer (minimum 3-5 words)
+
+IMPORTANT for Written questions in the mix:
+- Written questions should require meaningful descriptive answers, NOT single-word responses
+- The correctAnswer for written questions should be comprehensive (at least one complete sentence)`;
+    }
+
     return `You are an expert exam question generator.
 
 Subject: ${subject}
@@ -298,11 +330,7 @@ Task: Generate exactly ${count} high-quality questions following these requireme
 4. Ensure variety in topics within ${subject}
 5. Avoid repetitive or overly similar questions
 
-Output Format:
-Return ONLY a valid JSON array. Each question must be an object with these exact keys:
-- "question": (string) The question text
-- "options": (array of 4 strings) The answer choices
-- "correctAnswer": (string) One of the options that is the correct answer
+${outputFormat}
 
 Important: Return ONLY the JSON array with no additional text, explanations, markdown formatting, or backticks.`;
   };
