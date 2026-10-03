@@ -15,19 +15,9 @@ public class WebConfig {
         CorsConfiguration config = new CorsConfiguration();
         
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:5173");
-        config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("http://127.0.0.1:5173");
-        config.addAllowedOrigin("http://127.0.0.1:3000");
-        config.addAllowedOrigin("http://10.108.116.86:5173");
-        config.addAllowedOrigin("http://10.108.116.86:3000");
+        config.setAllowedOriginPatterns(java.util.List.of("*"));
         config.addAllowedHeader("*");
-        config.addAllowedMethod("GET");
-        config.addAllowedMethod("POST");
-        config.addAllowedMethod("PUT");
-        config.addAllowedMethod("DELETE");
-        config.addAllowedMethod("OPTIONS");
-        config.addAllowedMethod("PATCH");
+        config.addAllowedMethod("*");
         config.setMaxAge(3600L);
         config.addExposedHeader("*");
         

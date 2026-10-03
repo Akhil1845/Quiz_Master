@@ -3,15 +3,18 @@ import config from '../config';
 // Backend API base URL
 const API_BASE_URL = config.API_BASE_URL;
 
+const DEFAULT_HEADERS = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'ngrok-skip-browser-warning': 'true',
+};
+
 const api = {
   // Regular email/password login
   login: async (email, password) => {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: DEFAULT_HEADERS,
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
@@ -34,10 +37,7 @@ const api = {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: DEFAULT_HEADERS,
         credentials: 'include',
         body: JSON.stringify(requestBody)
       });
@@ -62,10 +62,7 @@ const api = {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/google`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: DEFAULT_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ token })
       });
@@ -81,10 +78,7 @@ const api = {
   setUsername: async (email, username) => {
     const response = await fetch(`${API_BASE_URL}/auth/set-username`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: DEFAULT_HEADERS,
       credentials: 'include',
       body: JSON.stringify({ 
         email, 
