@@ -13,11 +13,11 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://interdental-farcically-bernardina.ngrok-free.dev/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://interdental-farcically-bernardina.ngrok-free.dev/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
